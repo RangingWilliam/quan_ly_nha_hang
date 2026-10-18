@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhoBot - Nhà Hàng Viet Cuisine</title>
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .chat-scroll::-webkit-scrollbar { width: 6px; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-amber-50/40 min-h-screen flex flex-col">
+
+  <!-- HEADER NHÀ HÀNG -->
+  <header class="bg-gradient-to-r from-red-800 to-amber-700 text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">🍜</span>
+        <div>
+          <h1 class="text-2xl font-bold tracking-wide">VIET CUISINE</h1>
+          <p class="text-amber-100 text-sm">📍 329 Scottmouth, Georgia, USA | ☎️ Hotline: 318-237-3870</p>
+        </div>
+      </div>
+
+      <!-- KHU VỰC CẤU HÌNH API KEY & CHẾ ĐỘ MOCK -->
+      <div class="flex items-center gap-2 bg-black/20 p-2 rounded-lg text-sm">
+        <input id="apiKeyInput" type="password" placeholder="🔑 Dán Gemini API Key..."
+          class="px-3 py-1.5 rounded bg-white text-gray-800 text-xs w-48 focus:outline-none"
+          onchange="saveKey()" />
+        <label class="flex items-center gap-1 cursor-pointer select-none text-xs px-2">
+          <input id="mockToggle" type="checkbox" checked class="accent-amber-400" onchange="updateStatusBadge()" />
+          <span>Mock Mode</span>
+        </label>
+        <span id="statusBadge" class="px-2 py-1 rounded text-xs font-semibold bg-amber-400 text-gray-900">
+          Chế độ Giả lập
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- NỘI DUNG CHÍNH: 2 CỘT (THỰC ĐƠN & PHOBOT CHAT) -->
+  <main class="max-w-7xl w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+
+    <!-- CỘT TRÁI (5 PHẦN): DANH SÁCH THỰC ĐƠN 7 MÓN (menu.csv) -->
+    <section class="lg:col-span-5 flex flex-col bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
+      <div class="bg-amber-100/70 px-5 py-3.5 border-b border-amber-200 flex justify-between items-center">
+        <h2 class="font-bold text-amber-950 flex items-center gap-2">
+          📋 Thực Đơn Nhà Hàng (7 Món)
+        </h2>
+        <span class="text-xs text-amber-800 bg-amber-200/80 px-2.5 py-1 rounded-full font-medium">
+          Bấm vào món để hỏi nhanh
+        </span>
+      </div>
+      <div id="menuContainer" class="p-4 space-y-3 overflow-y-auto max-h-[600px] chat-scroll">
+        <!-- Dữ liệu món ăn sẽ được JS tự động render tại đây -->
+      </div>
+    </section>
+
+    <!-- CỘT PHẢI (7 PHẦN): KHUNG TRÒ CHUYỆN VỚI PHOBOT -->
+    <section class="lg:col-span-7 flex flex-col bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden h-[660px]">
+      <!-- Thanh tiêu đề Chat -->
+      <div class="bg-red-50 px-5 py-3.5 border-b border-red-100 flex justify-between items-center">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-full bg-red-700 text-white flex items-center justify-center text-lg">🤖</div>
+          <div>
+            <h2 class="font-bold text-gray-800 text-sm">Trợ Lý AI PhoBot</h2>
+            <p class="text-xs text-green-600 font-medium">● Trực tuyến - Sẵn sàng tư vấn thực đơn</p>
+          </div>
+        </div>
+        <button onclick="clearChat()" class="text-xs text-gray-500 hover:text-red-600 px-2.5 py-1 rounded border border-gray-200 hover:border-red-200 transition">
+          🗑️ Xóa lịch sử
+        </button>
+      </div>
+
+      <!-- Nút câu hỏi kiểm thử nhanh (Bước 9 & 10) -->
+      <div class="px-4 py-2.5 bg-gray-50 border-b text-xs flex flex-wrap gap-1.5 items-center">
+        <span class="text-gray-500 font-medium mr-1">💡 Thử nhanh:</span>
+        <button onclick="sendQuick('Món nào là đặc sản hoặc được gọi nhiều nhất?')"
+          class="bg-white hover:bg-amber-50 text-gray-700 border border-gray-200 px-2.5 py-1 rounded-full transition">
+          🌟 Món đặc sản?
+        </button>
+        <button onclick="sendQuick('Nếu tôi không ăn được đồ cay hoặc có nguyên liệu không thích, quán có điều chỉnh được không?')"
+          class="bg-white hover:bg-amber-50 text-gray-700 border border-gray-200 px-2.5 py-1 rounded-full transition">
+          🌶️ Không ăn được cay
+        </button>
+        <button onclick="sendQuick('Cho mình xin địa chỉ và hotline của nhà hàng?')"
+          class="bg-white hover:bg-amber-50 text-gray-700 border border-gray-200 px-2.5 py-1 rounded-full transition">
+          📍 Địa chỉ quán
+        </button>
+        <button onclick="sendQuick('iPhone đắt nhất hiện nay là gì?')"
+          class="bg-white hover:bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 rounded-full transition">
+          📱 Hỏi mua iPhone (Lạc đề)
+        </button>
+      </div>
+
+      <!-- Khung hiển thị tin nhắn -->
+      <div id="chatBox" class="flex-1 p-4 space-y-4 overflow-y-auto chat-scroll bg-stone-50/50"></div>
+
+      <!-- Ô nhập tin nhắn -->
+      <form onsubmit="handleChatSubmit(event)" class="p-3 bg-white border-t flex gap-2">
+        <input id="userInput" type="text" placeholder="Nhập câu hỏi của bạn cho PhoBot..."
+          class="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:border-red-600 text-sm" />
+        <button type="submit"
+          class="bg-red-700 hover:bg-red-800 text-white font-medium px-5 py-2.5 rounded-xl text-sm transition">
+          Gửi ➤
+        </button>
+      </form>
+    </section>
+
+  </main>
+
+  <script>
+    // =====================================================
+    // 1. DỮ LIỆU THỰC ĐƠN & CẤU HÌNH (Từ Bước 5 - Bài 7)
+    // =====================================================
+    const CONFIG = {
+      restaurant_name: "Viet Cuisine",
+      restaurant_address: "329 Scottmouth, Georgia, USA",
+      hotline: "318-237-3870",
+      functions: ["giới thiệu nhà hàng", "giới thiệu menu", "giải đáp câu hỏi về món ăn"],
+      out_of_scope_message: "Tôi đang không hỗ trợ chức năng này. Xin vui lòng liên hệ nhân viên nhà hàng qua hotline 318-237-3870 để được trợ giúp."
+    };
+
+    const MENU_DATA = [
+      {
+        name: "Gỏi Cuốn", icon: "🌯",
+        description: "Mỗi chiếc gỏi cuốn được cuốn cẩn thận trong lá bánh tráng mềm mại, kết hợp với các loại rau sống, thịt hoặc tôm tươi, thưởng thức cùng nước mắm chua ngọt.",
+        ingredients: "bún, bánh tráng, tôm, thịt bò phi lê, rau sống",
+        notes: "Món gỏi cuốn thường được phục vụ tươi và phải ăn liền sau khi cuốn để trải nghiệm hương vị tốt nhất."
+      },
+      {
+        name: "Phở Việt Nam", icon: "🍜",
+        description: "Nổi tiếng với hương vị đậm đà và hương thơm của gia vị tự nhiên. Mỗi tô phở được chế biến từ nước dùng thơm ngon, kết hợp sợi bánh mềm mại và thịt bò thơm ngọt.",
+        ingredients: "bún phở, thịt bò, thịt gà, hành tây, hành phi, rau sống, giá đỗ, ớt",
+        notes: "Thịt bò có thể chọn giữa tái và chín theo ý thích của khách."
+      },
+      {
+        name: "Cơm Tấm", icon: "🍛",
+        description: "Món ăn đường phố trứ danh gồm cơm nấu từ gạo tấm thơm dẻo, kết hợp thịt heo nướng than hoa, trứng hấp, chả, dưa leo và nước mắm chua ngọt.",
+        ingredients: "gạo tấm, thịt heo nướng, trứng, chả, dưa leo, nước mắm chua ngọt",
+        notes: "Thích hợp cho cả bữa trưa và bữa tối no bụng."
+      },
+      {
+        name: "Bún Bò", icon: "🍲",
+        description: "Đặc sản ẩm thực miền Trung Việt Nam, nổi tiếng với nước dùng cay thơm nồng nàn hương sả và mắm ruốc, cùng sợi bún to dai mềm.",
+        ingredients: "bún, thịt bò, hành tây, hành tím, rau sống",
+        notes: "Thịt bò có thể chọn giữa tái, nạm, bắp bò, giò heo."
+      },
+      {
+        name: "Khoai Tây Chiên", icon: "🍟",
+        description: "Món ăn phổ biến với lớp vỏ giòn rụm bên ngoài và khoai mềm bùi bên trong, chấm cùng tương cà hoặc sốt cay.",
+        ingredients: "khoai tây, dầu thực vật, muối",
+        notes: "Thích hợp dùng làm món khai vị hoặc ăn kèm cho trẻ em."
+      },
+      {
+        name: "Phở Bò", icon: "🥢",
+        description: "Phở bò là món ăn truyền thống nổi tiếng của Việt Nam với nước dùng thơm ngon, bánh phở mềm và những lát thịt bò mỏng. Món ăn thường được dùng nóng cùng rau thơm và các loại gia vị.",
+        ingredients: "bánh phở, thịt bò, xương bò, hành lá, rau thơm, gừng, quế, hồi",
+        notes: "Phở bò ngon nhất khi được dùng nóng, có thể ăn kèm chanh, ớt và rau thơm tùy khẩu vị."
+      },
+      {
+        name: "Bánh Xèo", icon: "🥞",
+        description: "Bánh xèo có lớp vỏ vàng giòn được làm từ bột gạo, bên trong là nhân tôm, thịt và giá đỗ. Khi ăn thường cuốn cùng rau sống và chấm với nước mắm chua ngọt.",
+        ingredients: "bột gạo, tôm, thịt heo, giá đỗ, hành lá, rau sống, nước mắm",
+        notes: "Bánh xèo nên được thưởng thức ngay sau khi chiên để giữ được độ nóng và giòn của lớp vỏ."
+      }
+    ];
+
+    // =====================================================
+    // 2. XÂY DỰNG NGỮ CẢNH & SYSTEM INSTRUCTION (Bước 6 & 7)
+    // =====================================================
+    const MENU_CONTEXT = MENU_DATA.map(item =>
+      `- ${item.name}: ${item.description} Thành phần: ${item.ingredients}. Ghi chú: ${item.notes}`
+    ).join("\n");
+
+    const SYSTEM_INSTRUCTION = `
+Bạn tên là PhoBot, một trợ lý AI thông minh, nhiệt tình và lịch sự của nhà hàng ${CONFIG.restaurant_name}.
+Địa chỉ quán: ${CONFIG.restaurant_address}.
+Các nhiệm vụ được hỗ trợ: ${CONFIG.functions.join(", ")}.
+
+Quy tắc trả lời BẮT BUỘC:
+1. Luôn trả lời bằng tiếng Việt, giọng điệu vui vẻ, niềm nở và hiếu khách.
+2. Chỉ tư vấn và trả lời dựa trên thông tin thực đơn trong dữ liệu được cung cấp. Tuyệt đối KHÔNG tự bịa ra món ăn không có trong danh sách.
+3. Khi khách hỏi món nào đó, hãy giới thiệu thêm thành phần và ghi chú món để khách thấy hấp dẫn.
+4. Nếu khách hàng hỏi những câu nằm NGOÀI phạm vi nhà hàng/ẩm thực (ví dụ: công nghệ, đồ điện tử, thời tiết, giải toán...), hãy trả lời ĐÚNG câu sau:
+   "${CONFIG.out_of_scope_message}"
+5. Giữ câu trả lời súc tích, mạch lạc, dễ đọc.`.trim();
+
+    // =====================================================
+    // 3. HIỂN THỊ THỰC ĐƠN & KHỞI TẠO GIAO DIỆN
+    // =====================================================
+    function renderMenu() {
+      const container = document.getElementById("menuContainer");
+      container.innerHTML = MENU_DATA.map(item => `
+        <div onclick="sendQuick('Hãy giới thiệu chi tiết về món ${item.name}')"
+          class="p-3.5 rounded-xl border border-gray-100 hover:border-amber-400 hover:bg-amber-50/40 transition cursor-pointer shadow-sm">
+          <div class="flex justify-between items-center mb-1">
+            <h3 class="font-bold text-gray-800 text-sm">${item.icon} ${item.name}</h3>
+            <span class="text-xs text-red-700 font-medium">Hỏi món này →</span>
+          </div>
+          <p class="text-xs text-gray-600 mb-1.5">${item.description}</p>
+          <p class="text-[11px] text-gray-500"><strong>Thành phần:</strong> ${item.ingredients}</p>
+          <p class="text-[11px] text-amber-800 mt-0.5"><strong>Ghi chú:</strong> ${item.notes}</p>
+        </div>
+      `).join("");
+    }
+
+    // Chế độ Smart Mock (Trả lời thông minh ngay cả khi chưa nhập API Key)
+    function smartMockReply(question) {
+      const q = question.toLowerCase();
+      if (q.includes("iphone") || q.includes("laptop") || q.includes("thời tiết") || q.includes("toán")) {
+        return CONFIG.out_of_scope_message;
+      }
+      if (q.includes("địa chỉ") || q.includes("ở đâu") || q.includes("hotline") || q.includes("liên hệ")) {
+        return `Dạ nhà hàng **${CONFIG.restaurant_name}** nằm tại địa chỉ: **${CONFIG.restaurant_address}**. Quý khách có thể liên hệ Hotline **${CONFIG.hotline}** để được hỗ trợ nhanh nhất ạ! ❤️`;
+      }
+      for (const item of MENU_DATA) {
+        if (q.includes(item.name.toLowerCase())) {
+          return `Dạ em xin giới thiệu món **${item.name}** ${item.icon} của quán ạ:\n- **Mô tả:** ${item.description}\n- **Thành phần:** ${item.ingredients}.\n- **Ghi chú:** ${item.notes}`;
+        }
+      }
+      if (q.includes("cay") || q.includes("điều chỉnh")) {
+        return `Dạ quý khách hoàn toàn yên tâm ạ! Nhà hàng có thể để riêng ớt hoặc điều chỉnh các nguyên liệu (như chọn bò tái/chín cho **Phở**, hoặc chọn các món không cay như **Gỏi Cuốn, Cơm Tấm, Khoai Tây Chiên**) theo đúng khẩu vị của mình nhé!`;
+      }
+      return `Dạ chào quý khách! Em là **PhoBot** *(đang chạy ở chế độ Smart Mock)*. Hiện thực đơn của **${CONFIG.restaurant_name}** gồm có 7 món đặc sắc: **${MENU_DATA.map(m => m.name).join(", ")}**. Quý khách có thể bấm vào từng món bên trái hoặc dán Gemini API Key ở góc trên để chat AI trực tiếp nhé!`;
+    }
+
+    // Gọi Gemini REST API trực tiếp từ trình duyệt
+    async function askBot(question) {
+      const apiKey = document.getElementById("apiKeyInput").value.trim();
+      const useMock = document.getElementById("mockToggle").checked;
+
+      if (useMock || !apiKey) {
+        await new Promise(r => setTimeout(r, 400));
+        return smartMockReply(question);
+      }
+
+      const userPrompt = `Dưới đây là thông tin thực đơn của nhà hàng:\n${MENU_CONTEXT}\n\nKhách hàng hỏi:\n"${question}"\n\nHãy trả lời khách hàng theo đúng vai trò PhoBot và các quy tắc đã được hướng dẫn.`;
+
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+              contents: [{ parts: [{ text: userPrompt }] }],
+              generationConfig: { temperature: 0.3 }
+            })
+          }
+        );
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message);
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "Không nhận được phản hồi.";
+      } catch (err) {
+        return `⚠️ Lỗi gọi Gemini API (${err.message}). Đang chuyển sang phản hồi dự phòng:\n\n` + smartMockReply(question);
+      }
+    }
+
+    // =====================================================
+    // 4. QUẢN LÝ TIN NHẮN TRÊN GIAO DIỆN
+    // =====================================================
+    function appendMessage(role, text) {
+      const chatBox = document.getElementById("chatBox");
+      const isBot = role === "bot";
+      const htmlContent = isBot ? marked.parse(text) : text;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = `flex gap-2.5 ${isBot ? "justify-start" : "justify-end"}`;
+      wrapper.innerHTML = `
+        ${isBot ? `<div class="w-8 h-8 rounded-full bg-red-700 text-white flex items-center justify-center text-sm shrink-0">🤖</div>` : ""}
+        <div class="max-w-[82%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
+          isBot ? "bg-white text-gray-800 border border-gray-100" : "bg-red-700 text-white"
+        }">
+          ${htmlContent}
+        </div>
+      `;
+      chatBox.appendChild(wrapper);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById("userInput");
+      const question = input.value.trim();
+      if (!question) return;
+      input.value = "";
+      await processQuestion(question);
+    }
+
+    async function sendQuick(question) {
+      await processQuestion(question);
+    }
+
+    async function processQuestion(question) {
+      appendMessage("user", question);
+      const chatBox = document.getElementById("chatBox");
+      const loading = document.createElement("div");
+      loading.className = "text-xs text-gray-400 italic pl-10";
+      loading.innerText = "⏳ PhoBot đang soạn câu trả lời...";
+      chatBox.appendChild(loading);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      const reply = await askBot(question);
+      loading.remove();
+      appendMessage("bot", reply);
+    }
+
+    function clearChat() {
+      document.getElementById("chatBox").innerHTML = "";
+      appendMessage("bot", `Dạ PhoBot xin chào quý khách! 🍜✨ Em là trợ lý AI của nhà hàng **${CONFIG.restaurant_name}** (tại *${CONFIG.restaurant_address}*). Quý khách muốn tìm hiểu món ăn nào trong thực đơn hôm nay ạ?`);
+    }
+
+    function saveKey() {
+      const key = document.getElementById("apiKeyInput").value.trim();
+      if (key) {
+        document.getElementById("mockToggle").checked = false;
+      }
+      updateStatusBadge();
+    }
+
+    function updateStatusBadge() {
+      const isMock = document.getElementById("mockToggle").checked;
+      const badge = document.getElementById("statusBadge");
+      if (isMock) {
+        badge.textContent = "Chế độ Giả lập";
+        badge.className = "px-2 py-1 rounded text-xs font-semibold bg-amber-400 text-gray-900";
+      } else {
+        badge.textContent = "Gemini 2.5 Flash";
+        badge.className = "px-2 py-1 rounded text-xs font-semibold bg-green-400 text-gray-900";
+      }
+    }
+
+    // Khởi chạy ban đầu
+    renderMenu();
+    clearChat();
+  </script>
+</body>
+</html>
