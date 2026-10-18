@@ -8,8 +8,8 @@ from google.genai import types
 
 # 1. CẤU HÌNH TRANG WEB STREAMLIT
 st.set_page_config(
-    page_title="PhoBot - Viet Cuisine AI",
-    page_icon="🍜",
+    page_title="LDBot - Lamar Davis AI",
+    page_icon="🥦",
     layout="wide"
 )
 
@@ -19,56 +19,88 @@ def init_data():
     menu_path = Path("menu.csv")
     if not menu_path.exists():
         sample_menu_data = pd.DataFrame([
-            {
-                "name": "Gỏi Cuốn",
-                "description": "Mỗi chiếc gỏi cuốn được cuốn cẩn thận trong lá bánh tráng mềm mại, kết hợp với các loại rau sống, thịt hoặc tôm tươi, thưởng thức cùng nước mắm chua ngọt.",
-                "ingredients": "bún, bánh tráng, tôm, thịt bò phi lê, rau sống",
-                "notes": "Món gỏi cuốn thường được phục vụ tươi và phải ăn liền sau khi cuốn để trải nghiệm hương vị tốt nhất."
-            },
-            {
-                "name": "Phở Việt Nam",
-                "description": "Nổi tiếng với hương vị đậm đà và hương thơm của gia vị tự nhiên. Mỗi tô phở được chế biến từ nước dùng thơm ngon, kết hợp sợi bánh mềm mại và thịt bò thơm ngọt.",
-                "ingredients": "bún phở, thịt bò, thịt gà, hành tây, hành phi, rau sống, giá đỗ, ớt",
-                "notes": "Thịt bò có thể chọn giữa tái và chín theo ý thích của khách."
-            },
-            {
-                "name": "Cơm Tấm",
-                "description": "Món ăn đường phố trứ danh gồm cơm nấu từ gạo tấm thơm dẻo, kết hợp thịt heo nướng than hoa, trứng hấp, chả, dưa leo và nước mắm chua ngọt.",
-                "ingredients": "gạo tấm, thịt heo nướng, trứng, chả, dưa leo, nước mắm chua ngọt",
-                "notes": "Thích hợp cho cả bữa trưa và bữa tối no bụng."
-            },
-            {
-                "name": "Bún Bò",
-                "description": "Đặc sản ẩm thực miền Trung Việt Nam, nổi tiếng với nước dùng cay thơm nồng nàn hương sả và mắm ruốc, cùng sợi bún to dai mềm.",
-                "ingredients": "bún, thịt bò, hành tây, hành tím, rau sống",
-                "notes": "Thịt bò có thể chọn giữa tái, nạm, bắp bò, giò heo."
-            },
-            {
-                "name": "Khoai Tây Chiên",
-                "description": "Món ăn phổ biến với lớp vỏ giòn rụm bên ngoài và khoai mềm bùi bên trong, chấm cùng tương cà hoặc sốt cay.",
-                "ingredients": "khoai tây, dầu thực vật, muối",
-                "notes": "Thích hợp dùng làm món khai vị hoặc ăn kèm cho trẻ em."
-            },
-            {
-                "name": "Phở Bò",
-                "description": "Phở bò là món ăn truyền thống nổi tiếng của Việt Nam với nước dùng thơm ngon, bánh phở mềm và những lát thịt bò mỏng. Món ăn thường được dùng nóng cùng rau thơm và các loại gia vị.",
-                "ingredients": "bánh phở, thịt bò, xương bò, hành lá, rau thơm, gừng, quế, hồi",
-                "notes": "Phở bò ngon nhất khi được dùng nóng, có thể ăn kèm chanh, ớt và rau thơm tùy khẩu vị."
-            },
-            {
-                "name": "Bánh Xèo",
-                "description": "Bánh xèo có lớp vỏ vàng giòn được làm từ bột gạo, bên trong là nhân tôm, thịt và giá đỗ. Khi ăn thường cuốn cùng rau sống và chấm với nước mắm chua ngọt.",
-                "ingredients": "bột gạo, tôm, thịt heo, giá đỗ, hành lá, rau sống, nước mắm",
-                "notes": "Bánh xèo nên được thưởng thức ngay sau khi chiên để giữ được độ nóng và giòn của lớp vỏ."
-            }
+            [
+  {
+    "name": "Yee-Yee Ass Burger",
+    "description": "Chiếc burger bò phô mai siêu to khổng lồ, ngon đến mức giúp bạn vứt ngay cái kiểu tóc quê mùa 'yee-yee ass haircut' để ra đường tán tỉnh mấy cô nàng nóng bỏng.",
+    "ingredients": "bánh mì burger, thịt bò nướng, phô mai cheddar, xà lách, cà chua, sốt đặc chế LD",
+    "notes": "Món ăn bán chạy nhất tại tiệm, khuyên dùng cho những ai đang bị bạn thân kỳ thị ngoại hình."
+  },
+  {
+    "name": "LD Organics Herbal Pizza",
+    "description": "Bánh Pizza đế mỏng giòn rụm được phủ ngập ngụa phô mai và một lớp 'thảo mộc đặc biệt' màu xanh từ chính nông trại LD Organics của Lamar.",
+    "ingredients": "đế pizza, sốt cà chua, phô mai mozzarella, xúc xích pepperoni, thảo mộc LD Organics",
+    "notes": "Ăn một miếng là thấy thư giãn, chống chỉ định ăn trước khi lái xe làm nhiệm vụ hoặc khi gặp cảnh sát."
+  },
+  {
+    "name": "Chop's Heavyweight Hotdog",
+    "description": "Chiếc hotdog siêu dài kẹp xúc xích xông khói cỡ bự, được đặt tên theo chú chó Chop lực lưỡng của Franklin mà Lamar cực kỳ khoái dắt đi quậy phá.",
+    "ingredients": "bánh mì hotdog, xúc xích béc-giê siêu to, hành tây ngào đường, mù tạt vàng, tương cà",
+    "notes": "Cẩn thận giữ chắc tay, kẻo bị chú chó Chop nhảy vào táp mất!"
+  },
+  {
+    "name": "Chamberlain Hills Fried Chicken",
+    "description": "Gà rán giòn rụm kiểu miền Nam nước Mỹ mang màu sắc của khu phố Chamberlain Hills, lớp da ngoài giòn rần rật, bên trong thịt ngọt mọng nước.",
+    "ingredients": "cánh và đùi gà, bột chiên xù bí mật, súp lơ xanh ăn kèm, sốt BBQ cay",
+    "notes": "Món ăn lý tưởng cho các buổi tụ họp của băng đảng Families trước khi đi 'thu hồi' xe."
+  },
+  {
+    "name": "Simeon's Repo Mac & Cheese",
+    "description": "Mì ống nướng phô mai béo ngậy, dính chặt và đậm đặc như cái cách lão Simeon bắt Lamar và Franklin đi đòi nợ thuê mà không trả đủ lương.",
+    "ingredients": "mì ống macaroni, phô mai parmesan, phô mai cheddar, bơ, thịt xông khói vụn",
+    "notes": "Ăn để giải tỏa ức chế sau khi bị lão sếp Simeon lừa lọc quỵt tiền công."
+  },
+  {
+    "name": "Bacon 'Apache Chief' Sandwich",
+    "description": "Sandwich kẹp đẫm thịt ba chỉ xông khói áp chảo giòn tan, lấy danh nghĩa biệt danh 'Apache Chief' tự phong của Lamar để thể hiện sự thống trị đường phố.",
+    "ingredients": "bánh mì gối nướng, thịt ba chỉ xông khói xém cạnh, trứng ốp la, sốt mayonnaise",
+    "notes": "Ăn nhanh gọn ngay trên xe trong lúc chờ Franklin đột nhập vào biệt thự của mục tiêu."
+  },
+  {
+    "name": "Streets of Los Santos Loaded Fries",
+    "description": "Khoai tây chiên ngập dầu được phủ một lớp nước sốt phô mai chảy béo ngậy, thịt bò băm và hành lá, hỗn loạn hệt như giao thông tại trung tâm Los Santos.",
+    "ingredients": "khoai tây cắt dài, sốt phô mai ấm, thịt bò băm vị taco, hành lá, ớt ngâm",
+    "notes": "Phù hợp làm món ăn kèm cho trẻ em hoặc cho mấy gã gangster đang thèm đồ béo."
+  },
+  {
+    "name": "Stretch's Backstabbing Pasta",
+    "description": "Mì Ý sốt cà chua thịt băm cay nồng đậm vị, được đặt tên theo gã Stretch - kẻ luôn tìm cách đâm sau lưng anh em Families.",
+    "ingredients": "mì sợi dài spaghetti, sốt cà chua cay (arrabbiata), thịt bò băm, tỏi, ớt bột",
+    "notes": "Vị cay xé lưỡi nhắc nhở bạn không được tin tưởng bất cứ gã nào vừa mới ra tù."
+  },
+  {
+    "name": "Ballas-Busting Buffalo Wings",
+    "description": "Cánh gà chiên giòn sốt Buffalo chua cay nồng, ăn vào là muốn đi 'thần sầu' dẹp sạch bọn băng đảng Ballas màu tím ở khu đối diện.",
+    "ingredients": "cánh gà, sốt ớt cayenne cay nồng, bơ nhạt, giấm, ăn kèm cần tây và sốt phô mai xanh",
+    "notes": "Món ăn có độ cay cực cao, ăn xong là máu chiến đầy người."
+  },
+  {
+    "name": "Green Gang Ribs BBQ",
+    "description": "Sườn heo nướng tảng sốt BBQ mang đậm phong cách tiệc nướng sân sau tại Grove Street, thịt mềm rực xương, đượm mùi khói than hoa.",
+    "ingredients": "sườn non heo, sốt BBQ mật ong, bột tỏi, tiêu đen, màu thực phẩm xanh organic tạo điểm nhấn",
+    "notes": "Ăn món này là phải dùng tay không để gặm, thể hiện đúng chất hoang dã của dân đường phố."
+  },
+  {
+    "name": "Vanilla Unicorn Tacos",
+    "description": "Bánh taco vỏ giòn rụm kẹp thịt gà xé đậm vị, món ăn khuya khoái khẩu của Lamar sau mỗi đêm quẩy banh nóc tại câu lạc bộ thoát y Vanilla Unicorn.",
+    "ingredients": "vỏ bánh taco nướng giòn, thịt gà xé, bắp cải bào, sốt kem chua, hành tây",
+    "notes": "Ăn kèm một lát chanh vắt thẳng vào nhân để tăng hương vị bùng nổ."
+  },
+  {
+    "name": "Wasted Fudge Brownie",
+    "description": "Bánh sô-cô-la brownie đậm đặc, ngọt đắng đan xen, ăn xong một miếng là muốn nằm gục 'WASTED' như khi bạn lỡ tay kích nổ quả bom dính trong game.",
+    "ingredients": "sô-cô-la đen, bơ, bột mì, trứng, hạt óc chó, vụn bánh sô-cô-la",
+    "notes": "Món tráng miệng hoàn hảo để kết thúc một ngày dài chạy trốn khỏi đặc vụ FIB."
+  }
+]
         ])
         sample_menu_data.to_csv(menu_path, index=False, encoding="utf-8")
 
     config_path = Path("config.json")
     if not config_path.exists():
         sample_config = {
-            "restaurant_name": "Viet Cuisine",
-            "restaurant_address": "329 Scottmouth, Georgia, USA",
+            "restaurant_name": "LD Restaurant",
+            "restaurant_address": "67 Chamberlain Hills, Los Santos, USA",
             "hotline": "318-237-3870",
             "functions": ["giới thiệu nhà hàng", "giới thiệu menu", "giải đáp câu hỏi về món ăn"],
             "out_of_scope_message": "Tôi đang không hỗ trợ chức năng này. Xin vui lòng liên hệ nhân viên nhà hàng qua hotline 318-237-3870 để được trợ giúp."
@@ -95,13 +127,13 @@ def build_menu_context(df: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 def build_system_instruction(cfg: dict) -> str:
-    restaurant_name = cfg.get("restaurant_name", "Viet Cuisine")
+    restaurant_name = cfg.get("restaurant_name", "LD Restaurant")
     restaurant_address = cfg.get("restaurant_address", "")
     functions = ", ".join(cfg.get("functions", ["tư vấn món ăn"]))
     out_of_scope_message = cfg.get("out_of_scope_message", "")
 
     return f"""
-Bạn tên là PhoBot, một trợ lý AI thông minh, nhiệt tình và lịch sự của nhà hàng {restaurant_name}.
+Bạn tên là LDBot, một trợ lý AI thông minh, nhiệt tình và lịch sự của nhà hàng {restaurant_name}.
 Địa chỉ quán: {restaurant_address}.
 Các nhiệm vụ được hỗ trợ: {functions}.
 
@@ -121,7 +153,7 @@ def ask_bot(question: str, api_key: str, use_mock: bool, model_name: str) -> str
     if use_mock or not api_key:
         return (
             "🤖 **[Mock Mode - Phản hồi giả lập]**: Chào bạn! Đây là câu trả lời mẫu khi ở chế độ Mock. "
-            f"Nhà hàng **{config['restaurant_name']}** (*{config['restaurant_address']}*) hiện có 7 món: "
+            f"Nhà hàng **{config['restaurant_name']}** (*{config['restaurant_address']}*) hiện có 12 món: "
             f"**{', '.join(menu_df['name'].tolist())}**. "
             "Khi có API Key hợp lệ ở thanh bên trái, Gemini Flash sẽ phân tích và trả lời cực kỳ thông minh!"
         )
@@ -178,7 +210,7 @@ with st.sidebar:
         st.rerun()
 
 # 5. GIAO DIỆN CHÍNH (MAIN CHAT UI)
-st.title("🍜 Trợ Lý Ẩm Thực PhoBot - Viet Cuisine")
+st.title("👦🏿 Trợ Lý Ẩm Thực LDBot - Lamar Davis AI")
 st.caption("Bài mẫu Dự Án Cuối Khóa CSI: Xây dựng Chatbot AI với Gemini & Streamlit")
 
 with st.expander("📋 Xem bảng Thực Đơn Nhà Hàng (menu.csv)", expanded=False):
@@ -190,7 +222,7 @@ if "messages" not in st.session_state or len(st.session_state.messages) == 0:
         {
             "role": "assistant",
             "content": (
-                f"Dạ PhoBot xin chào quý khách! 🍜✨\n\n"
+                f"Dạ LDBot xin chào quý khách! 🍜✨\n\n"
                 f"Em là trợ lý AI của nhà hàng **{config['restaurant_name']}** "
                 f"(tại *{config['restaurant_address']}*).\n"
                 f"Quý khách muốn em giới thiệu thực đơn hay tư vấn món ngon nào hôm nay ạ?"
@@ -230,7 +262,7 @@ if user_question:
         st.markdown(user_question)
 
     with st.chat_message("assistant", avatar="🤖"):
-        with st.spinner("⏳ PhoBot đang soạn câu trả lời..."):
+        with st.spinner("⏳ LDBot đang soạn câu trả lời..."):
             bot_reply = ask_bot(
                 question=user_question,
                 api_key=api_key_input,
