@@ -1,302 +1,118 @@
 import os
 import json
 from pathlib import Path
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from typing import List
 import pandas as pd
-import streamlit as st
 from google import genai
 from google.genai import types
 
-# 1. CẤU HÌNH TRANG WEB STREAMLIT
-st.set_page_config(
-    page_title="LDBot - Lamar Davis AI",
-    page_icon="🍀",
-    layout="wide"
+app = FastAPI(title="Lamar Davis Restaurant API")
+
+# Cấu hình CORS để tệp index.html chạy trên trình duyệt có quyền gọi tới API Backend này
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# 2. TỰ ĐỘNG KHỞI TẠO DỮ LIỆU MENU & CONFIG
-@st.cache_data
-def init_data():
+# Cấu trúc dữ liệu JSON để ép buộc Gemini trích xuất món ăn chính xác
+class OrderItem(BaseModel):
+    item_name: str = Field(description="Tên chính xác của món ăn khớp 100% với thực đơn")
+    quantity: int = Field(description="Số lượng món ăn khách hàng muốn đặt")
+
+class BotResponseStructure(BaseModel):
+    reply: str = Field(description="Lời thoại phản hồi, tư vấn cho khách hàng bằng tiếng Việt")
+    ordered_items: List[OrderItem] = Field(default=[], description="Danh sách các món ăn khách chốt đặt. Nếu khách chỉ hỏi hoặc chưa chốt mua, hãy để mảng rỗng []")
+
+# Cấu trúc dữ liệu yêu cầu gửi từ Trình duyệt lên Server
+class ChatRequest(BaseModel):
+    message: str
+    api_key: str
+    use_mock: bool
+    model_name: str
+
+# Tự động khởi tạo dữ liệu menu tĩnh nếu chưa tồn tại file csv
+def init_menu_file():
     menu_path = Path("menu.csv")
     if not menu_path.exists():
-        # ĐÃ SỬA: Đưa trực tiếp danh sách các Dict vào DataFrame để tạo thành 12 dòng dữ liệu chuẩn
-        sample_menu_data = pd.DataFrame([
-            {
-                "name": "Yee-Yee Ass Burger",
-                "description": "Chiếc burger bò phô mai siêu to khổng lồ, ngon đến mức giúp bạn vứt ngay cái kiểu tóc quê mùa 'yee-yee ass haircut' để ra đường tán tỉnh mấy cô nàng nóng bỏng.",
-                "ingredients": "bánh mì burger, thịt bò nướng, phô mai cheddar, xà lách, cà chua, sốt đặc chế LD",
-                "notes": "Món ăn bán chạy nhất tại tiệm, khuyên dùng cho những ai đang bị bạn thân kỳ thị ngoại hình."
-            },
-            {
-                "name": "LD Organics Herbal Pizza",
-                "description": "Bánh Pizza đế mỏng giòn rụm được phủ ngập ngụa phô mai và một lớp 'thảo mộc đặc biệt' màu xanh từ chính nông trại LD Organics của Lamar.",
-                "ingredients": "đế pizza, sốt cà chua, phô mai mozzarella, xúc xích pepperoni, thảo mộc LD Organics",
-                "notes": "Ăn một miếng là thấy thư giãn, chống chỉ định ăn trước khi lái xe làm nhiệm vụ hoặc khi gặp cảnh sát."
-            },
-            {
-                "name": "Chop's Heavyweight Hotdog",
-                "description": "Chiếc hotdog siêu dài kẹp xúc xích xông khói cỡ bự, được đặt tên theo chú chó Chop lực lưỡng của Franklin mà Lamar cực kỳ khoái dắt đi quậy phá.",
-                "ingredients": "bánh mì hotdog, xúc xích béc-giê siêu to, hành tây ngào đường, mù tạt vàng, tương cà",
-                "notes": "Cẩn thận giữ chắc tay, kẻo bị chú chó Chop nhảy vào táp mất!"
-            },
-            {
-                "name": "Chamberlain Hills Fried Chicken",
-                "description": "Gà rán giòn rụm kiểu miền Nam nước Mỹ mang màu sắc của khu phố Chamberlain Hills, lớp da ngoài giòn rần rật, bên trong thịt ngọt mọng nước.",
-                "ingredients": "cánh và đùi gà, bột chiên xù bí mật, súp lơ xanh ăn kèm, sốt BBQ cay",
-                "notes": "Món ăn lý tưởng cho các buổi tụ họp của băng đảng Families trước khi đi 'thu hồi' xe."
-            },
-            {
-                "name": "Simeon's Repo Mac & Cheese",
-                "description": "Mì ống nướng phô mai béo ngậy, dính chặt và đậm đặc như cái cách lão Simeon bắt Lamar và Franklin đi đòi nợ thuê mà không trả đủ lương.",
-                "ingredients": "mì ống macaroni, phô mai parmesan, phô mai cheddar, bơ, thịt xông khói vụn",
-                "notes": "Ăn để giải tỏa ức chế sau khi bị lão sếp Simeon lừa lọc quỵt tiền công."
-            },
-            {
-                "name": "Bacon 'Apache Chief' Sandwich",
-                "description": "Sandwich kẹp đẫm thịt ba chỉ xông khói áp chảo giòn tan, lấy danh nghĩa biệt danh 'Apache Chief' tự phong của Lamar để thể hiện sự thống trị đường phố.",
-                "ingredients": "bánh mì gối nướng, thịt ba chỉ xông khói xém cạnh, trứng ốp la, sốt mayonnaise",
-                "notes": "Ăn nhanh gọn ngay trên xe trong lúc chờ Franklin đột nhập vào biệt thự của mục tiêu."
-            },
-            {
-                "name": "Streets of Los Santos Loaded Fries",
-                "description": "Khoai tây chiên ngập dầu được phủ một lớp nước sốt phô mai chảy béo ngậy, thịt bò băm và hành lá, hỗn loạn hệt như giao thông tại trung tâm Los Santos.",
-                "ingredients": "khoai tây cắt dài, sốt phô mai ấm, thịt bò băm vị taco, hành lá, ớt ngâm",
-                "notes": "Phù hợp làm món ăn kèm cho trẻ em hoặc cho mấy gã gangster đang thèm đồ béo."
-            },
-            {
-                "name": "Stretch's Backstabbing Pasta",
-                "description": "Mì Ý sốt cà chua thịt băm cay nồng đậm vị, được đặt tên theo gã Stretch - kẻ luôn tìm cách đâm sau lưng anh em Families.",
-                "ingredients": "mì sợi dài spaghetti, sốt cà chua cay (arrabbiata), thịt bò băm, tỏi, ớt bột",
-                "notes": "Vị cay xé lưỡi nhắc nhở bạn không được tin tưởng bất cứ gã nào vừa mới ra tù."
-            },
-            {
-                "name": "Ballas-Busting Buffalo Wings",
-                "description": "Cánh gà chiên giòn sốt Buffalo chua cay nồng, ăn vào là muốn đi 'thần sầu' dẹp sạch bọn băng đảng Ballas màu tím ở khu đối diện.",
-                "ingredients": "cánh gà, sốt ớt cayenne cay nồng, bơ nhạt, giấm, ăn kèm cần tây và sốt phô mai xanh",
-                "notes": "Món ăn có độ cay cực cao, ăn xong là máu chiến đầy người."
-            },
-            {
-                "name": "Green Gang Ribs BBQ",
-                "description": "Sườn heo nướng tảng sốt BBQ mang đậm phong cách tiệc nướng sân sau tại Grove Street, thịt mềm rực xương, đượm mùi khói than hoa.",
-                "ingredients": "sườn non heo, sốt BBQ mật ong, bột tỏi, tiêu đen, màu thực phẩm xanh organic tạo điểm nhấn",
-                "notes": "Ăn món này là phải dùng tay không để gặm, thể hiện đúng chất hoang dã của dân đường phố."
-            },
-            {
-                "name": "Vanilla Unicorn Tacos",
-                "description": "Bánh taco vỏ giòn rụm kẹp thịt gà xé đậm vị, món ăn khuya khoái khẩu của Lamar sau mỗi đêm quẩy banh nóc tại câu lạc bộ thoát y Vanilla Unicorn.",
-                "ingredients": "vỏ bánh taco nướng giòn, thịt gà xé, bắp cải bào, sốt kem chua, hành tây",
-                "notes": "Ăn kèm một lát chanh vắt thẳng vào nhân để tăng hương vị bùng nổ."
-            },
-            {
-                "name": "Wasted Fudge Brownie",
-                "description": "Bánh sô-cô-la brownie đậm đặc, ngọt đắng đan xen, ăn xong một miếng là muốn nằm gục 'WASTED' như khi bạn lỡ tay kích nổ quả bom dính trong game.",
-                "ingredients": "sô-cô-la đen, bơ, bột mì, trứng, hạt óc chó, vụn bánh sô-cô-la",
-                "notes": "Món tráng miệng hoàn hảo để kết thúc một ngày dài chạy trốn khỏi đặc vụ FIB."
-            }
+        sample_menu = pd.DataFrame([
+            {"name": "Yee-Yee Ass Burger", "description": "Chiếc burger bò phô mai siêu to khổng lồ giúp bạn vứt ngay cái kiểu tóc quê mùa.", "ingredients": "bánh mì burger, thịt bò nướng, phô mai cheddar", "notes": "Món ăn bán chạy nhất tại tiệm."},
+            {"name": "LD Organics Herbal Pizza", "description": "Bánh Pizza đế mỏng giòn rụm được phủ một lớp thảo mộc đặc biệt màu xanh.", "ingredients": "đế pizza, sốt cà chua, phô mai mozzarella, thảo mộc LD", "notes": "Chống chỉ định ăn trước khi gặp cảnh sát."},
+            {"name": "Chop's Heavyweight Hotdog", "description": "Chiếc hotdog siêu dài kẹp xúc xích xông khói cỡ bự đặt theo tên chú chó lực lưỡng.", "ingredients": "bánh mì hotdog, xúc xích béc-giê siêu to, mù tạt vàng", "notes": "Cẩn thận giữ chắc tay kẻo bị táp mất!"},
+            {"name": "Chamberlain Hills Fried Chicken", "description": "Gà rán giòn rụm kiểu miền Nam nước Mỹ mang màu sắc của khu phố Chamberlain Hills.", "ingredients": "cánh và đùi gà, bột chiên xù bí mật, sốt BBQ cay", "notes": "Món ăn lý tưởng cho các buổi tụ họp băng đảng."}
         ])
-        sample_menu_data.to_csv(menu_path, index=False, encoding="utf-8")
-        
-    config_path = Path("config.json")
-    if not config_path.exists():
-        sample_config = {
-            "restaurant_name": "LD Restaurant",
-            "restaurant_address": "67 Chamberlain Hills, Los Santos, USA",
-            "hotline": "318-237-3870",
-            "functions": ["giới thiệu nhà hàng", "giới thiệu menu", "giải đáp câu hỏi về món ăn"],
-            "out_of_scope_message": "Tôi đang không hỗ trợ chức năng này. Xin vui lòng liên hệ nhân viên nhà hàng qua hotline 318-237-3870 để được trợ giúp."
-        }
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(sample_config, f, ensure_ascii=False, indent=2)
-            
-    df = pd.read_csv(menu_path)
-    with open(config_path, "r", encoding="utf-8") as f:
-        cfg = json.load(f)
-    return df, cfg
+        sample_menu.to_csv(menu_path, index=False, encoding="utf-8")
+    return pd.read_csv(menu_path)
 
-menu_df, config = init_data()
+menu_df = init_menu_file()
 
-# Khởi tạo giỏ hàng ban đầu trong session_state nếu chưa có
-if "cart" not in st.session_state:
-    st.session_state.cart = {}
-
-# 3. CÁC HÀM LOGIC AI
 def build_menu_context(df: pd.DataFrame) -> str:
     lines = []
     for _, row in df.iterrows():
         name = str(row.get("name", "")).strip()
         desc = str(row.get("description", "")).strip()
         ing = str(row.get("ingredients", "")).strip()
-        notes = str(row.get("notes", "")).strip()
-        lines.append(f"- {name}: {desc} Thành phần: {ing}. Ghi chú: {notes}")
+        lines.append(f"- {name}: {desc} Thành phần: {ing}.")
     return "\n".join(lines)
 
-def build_system_instruction(cfg: dict) -> str:
-    restaurant_name = cfg.get("restaurant_name", "LD Restaurant")
-    restaurant_address = cfg.get("restaurant_address", "")
-    functions = ", ".join(cfg.get("functions", ["tư vấn món ăn"]))
-    out_of_scope_message = cfg.get("out_of_scope_message", "")
-    return f"""
-Bạn tên là LDBot, một trợ lý AI thông minh, nhiệt tình và lịch sự của nhà hàng {restaurant_name}. Địa chỉ quán: {restaurant_address}. 
-Các nhiệm vụ được hỗ trợ: {functions}.
+MENU_CONTEXT = build_menu_context(menu_df)
+OUT_OF_SCOPE_MSG = "Tôi đang không hỗ trợ chức năng này. Xin vui lòng liên hệ nhân viên nhà hàng qua hotline 318-237-3870 để được trợ giúp."
+
+SYSTEM_INSTRUCTION = f"""
+Bạn tên là LDBot, một trợ lý AI thông minh, nhiệt tình của nhà hàng Lamar Davis Restaurant.
+Dưới đây là thông tin thực đơn của nhà hàng:
+{MENU_CONTEXT}
 
 Quy tắc trả lời BẮT BUỘC:
-1. Luôn trả lời bằng tiếng Việt, giọng điệu vui vẻ, niềm nở và hiếu khách.
-2. Chỉ tư vấn và trả lời dựa trên thông tin thực đơn trong dữ liệu được cung cấp. Tuyệt đối KHÔNG tự bịa ra món ăn không có trong danh sách.
-3. Khi khách hỏi hoặc muốn chốt đặt một món nào đó, hãy giới thiệu thêm thành phần và ghi chú món để tăng tính thuyết phục.
-4. LẮT BẮT ĐẶT MÓN: Khi khách hàng nêu rõ ý định muốn mua/đặt/lấy món ăn cụ thể kèm số lượng (hoặc ngầm định số lượng là 1), hãy ghi nhận thông tin món ăn đó thật chính xác vào danh sách cấu trúc dữ liệu `ordered_items`.
-5. Nếu khách hàng hỏi những câu nằm NGOÀI phạm vi nhà hàng/ẩm thực, hãy trả lời ĐÚNG câu sau: "{out_of_scope_message}"
-6. Giữ câu trả lời súc tích, mạch lạc, dễ đọc.
-""".strip()
-
-menu_context = build_menu_context(menu_df)
-system_instruction = build_system_instruction(config)
-
-def ask_bot(question: str, api_key: str, use_mock: bool, model_name: str) -> dict:
-    """Trả về dict gồm 'reply' (Văn bản) và 'ordered_items' (Danh sách món được đặt)"""
-    if use_mock or not api_key:
-        # Giả lập hành vi đặt món nếu bấm vào câu hỏi mẫu đặt hàng ở Mock Mode
-mock_ordered = []
-if "burger" in question.lower() or "đặc sản" in question.lower():
-mock_ordered = [{"item_name": "Yee-Yee Ass Burger", "quantity": 1}]
-return {
-"reply": (
-"👩🏿‍🦲 [Mock Mode]: Chào bạn! Hệ thống nhận diện từ khóa thành công. "
-"Nếu bạn ở chế độ có API Key thực tế, Gemini sẽ bóc tách đơn hàng tự động để nạp thẳng vào giỏ hàng thanh bên trái!"
-),
-"ordered_items": mock_ordered
-}
-user_prompt = f"""
-Dưới đây là thông tin thực đơn của nhà hàng:
-{menu_context}
-Khách hàng hỏi: "{question}"
-Hãy trả lời khách hàng theo đúng vai trò LDBot và trả về đúng định dạng JSON cấu trúc yêu cầu.
+1. Luôn luôn trả lời bằng tiếng Việt, giọng điệu vui vẻ, hiếu khách.
+2. Chỉ tư vấn và trả lời dựa trên thực đơn được cung cấp. Không tự bịa ra món ăn ngoài danh sách.
+3. Khi khách chốt mua hoặc muốn đặt món cụ thể kèm số lượng, hãy trích xuất chính xác tên món và số lượng vào mảng 'ordered_items'.
+4. Nếu khách hàng hỏi những câu nằm ngoài phạm vi nhà hàng/ẩm thực (ví dụ: công nghệ, mua điện thoại, thời tiết, giải toán...), bạn PHẢI điền chính xác vào trường 'reply' câu sau: "{OUT_OF_SCOPE_MSG}"
 """
-try:
-client = genai.Client(api_key=api_key)
-# Sử dụng tính năng response_schema để nhận cấu trúc dữ liệu JSON sạch
-response = client.models.generate_content(
-model=model_name,
-contents=user_prompt,
-config=types.GenerateContentConfig(
-system_instruction=system_instruction,
-temperature=0.2,
-response_mime_type="application/json",
-response_schema=BotResponseStructure,
-)
-)
-# Ép kiểu kết quả JSON chuỗi trả về từ Model thành Dictionary Python
-return json.loads(response.text)
-except Exception as e:
-return {
-"reply": f"⚠️ Không gọi được Gemini API ({e}). Vui lòng kiểm tra lại API Key hoặc bật Mock Mode.",
-"ordered_items": []
-}
 
-4. GIAO DIỆN THANH BÊN TRÁI (SIDEBAR)
+@app.post("/api/chat")
+async def chat_endpoint(payload: ChatRequest):
+    # Xử lý chế độ Mock Mode giả lập không cần gọi API Key
+    if payload.use_mock or not payload.api_key:
+        mock_items = []
+        msg_lower = payload.message.lower()
+        if "burger" in msg_lower:
+            mock_items = [{"item_name": "Yee-Yee Ass Burger", "quantity": 1}]
+        elif "pizza" in msg_lower:
+            mock_items = [{"item_name": "LD Organics Herbal Pizza", "quantity": 1}]
+        elif "chicken" in msg_lower or "gà" in msg_lower:
+            mock_items = [{"item_name": "Chamberlain Hills Fried Chicken", "quantity": 1}]
+            
+        if any(keyword in msg_lower for keyword in ["iphone", "thời tiết", "máy tính", "giải toán"]):
+            return {"reply": OUT_OF_SCOPE_MSG, "ordered_items": []}
+            
+        return {
+            "reply": "👩🏿‍🦲 **[Mock Mode - Server]**: Chào bạn! Hệ thống nhận diện từ khóa thành công tại Backend. Khi có API Key thật, Gemini sẽ tự động xử lý thông minh hơn!",
+            "ordered_items": mock_items
+        }
 
-with st.sidebar:
-st.title(f"🍀 {config['restaurant_name']}")
-st.markdown(f"📍 Địa chỉ: {config['restaurant_address']}")
-st.markdown(f"📞 Hotline: {config['hotline']}")
-st.divider()
-# --- TÍNH NĂNG MỚI: HIỂN THỊ GIỎ HÀNG (CART) ---
-st.subheader("🛒 Giỏ Hàng Của Bạn")
-if not st.session_state.cart:
-st.info("Giỏ hàng trống. Hãy chat đặt món với LDBot nhé!")
-else:
-for name, qty in list(st.session_state.cart.items()):
-col_item, col_btn = st.columns([4])
-col_item.markdown(f"🔹 {name} x {qty}")
-if col_btn.button("❌", key=f"del_{name}"):
-del st.session_state.cart[name]
-st.rerun()
-st.success(f"Tổng số món: {sum(st.session_state.cart.values())}")
-if st.button("🔔 Gửi đơn hàng tới nhà bếp", type="primary", use_container_width=True):
-st.toast("🎉 Đơn hàng đã được chuyển tới nhà bếp thành công!")
-st.session_state.cart = {}
-st.rerun()
-st.divider()
-st.subheader("⚙️ Cấu hình AI")
-default_key = ""
-try:
-default_key = st.secrets.get("GEMINI_API_KEY", "")
-except Exception:
-default_key = os.getenv("GEMINI_API_KEY", "")
-api_key_input = st.text_input(
-"🔑 Gemini API Key:",
-value=default_key,
-type="password",
-placeholder="Dán GEMINI_API_KEY vào đây..."
-)
-model_choice = st.selectbox("Mô hình:", ["gemini-2.5-flash", "gemini-2.5-flash-lite"])
-use_mock = st.toggle("🧪 Chế độ Mock Mode", value=(not bool(api_key_input)))
-st.divider()
-if st.button("🗑️ Xóa lịch sử chat", use_container_width=True):
-st.session_state.messages = []
-st.rerun()
+    # Xử lý gọi Gemini API thực tế
+    try:
+        client = genai.Client(api_key=payload.api_key)
+        response = client.models.generate_content(
+            model=payload.model_name,
+            contents=payload.message,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_INSTRUCTION,
+                temperature=0.2,
+                response_mime_type="application/json",
+                response_schema=BotResponseStructure,
+            )
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi Gemini API: {str(e)}")
 
-5. GIAO DIỆN CHÍNH (MAIN CHAT UI)
-
-st.title("👦🏿 Trợ Lý Ẩm Thực LDBot - Lamar Davis AI")
-st.caption("Bài mẫu Dự Án Cuối Khóa CSI: Chatbot AI Đặt Món Thông Minh & Giỏ Hàng")
-with st.expander("📋 Xem bảng Thực Đơn Nhà Hàng (menu.csv)", expanded=False):
-st.dataframe(menu_df, use_container_width=True, hide_index=True)
-if "messages" not in st.session_state or len(st.session_state.messages) == 0:
-st.session_state.messages = [
-{
-"role": "assistant",
-"content": (
-f"Dạ LDBot xin chào quý khách! 🍀✨\n\n"
-f"Em là trợ lý AI của nhà hàng {config['restaurant_name']}.\n"
-f"Quý khách có thể xem menu và bảo em: 'Lấy cho anh 2 cái Yee-Yee Ass Burger', em sẽ tự bỏ vào giỏ hàng ngay!"
-)
-}
-]
-st.markdown("💡 Bấm thử nhanh các tình huống kiểm thử:")
-c1, c2, c3, c4 = st.columns(4)
-quick_question = None
-if c1.button("🛒 Đặt thử 1 Burger", use_container_width=True):
-quick_question = "Lấy cho tôi một phần Yee-Yee Ass Burger để trải nghiệm thử xem nào!"
-if c2.button("🍕 Đặt 2 Pizza & 1 Chicken", use_container_width=True):
-quick_question = "Tôi muốn mua 2 cái LD Organics Herbal Pizza và 1 đĩa Chamberlain Hills Fried Chicken nhé."
-if c3.button("📍 Địa chỉ nhà hàng", use_container_width=True):
-quick_question = "Cho mình xin địa chỉ nhà hàng?"
-if c4.button("📱 Hỏi mua iPhone (Lạc đề)", use_container_width=True):
-quick_question = "iPhone đắt nhất hiện nay là gì?"
-st.divider()
-
-Hiển thị lịch sử chat
-
-for msg in st.session_state.messages:
-avatar = "👩🏿‍🦲" if msg["role"] == "assistant" else "👤"
-with st.chat_message(msg["role"], avatar=avatar):
-st.markdown(msg["content"])
-chat_input = st.chat_input("Nhập câu hỏi hoặc gọi món tại đây...")
-user_question = quick_question or chat_input
-if user_question:
-st.session_state.messages.append({"role": "user", "content": user_question})
-with st.chat_message("user", avatar="👤"):
-st.markdown(user_question)
-with st.chat_message("assistant", avatar="👩🏿‍🦲"):
-with st.spinner("⏳ LDBot đang phân tích và xử lý đơn hàng..."):
-# Gọi API nhận về dạng Dictionary chứa cả văn bản phản hồi và mảng món đặt
-result_dict = ask_bot(
-question=user_question,
-api_key=api_key_input,
-use_mock=use_mock,
-model_name=model_choice
-)
-bot_reply = result_dict.get("reply", "")
-ordered_items = result_dict.get("ordered_items", [])
-# Nếu có món ăn được bot bóc tách ra từ câu thoại, cập nhật vào giỏ hàng Streamlit
-if ordered_items:
-for item in ordered_items:
-name = item.get("item_name")
-qty = item.get("quantity", 1)
-# Kiểm tra tên món khớp thực tế mới cho vào giỏ
-if name in menu_df['name'].values:
-st.session_state.cart[name] = st.session_state.cart.get(name, 0) + qty
-st.toast(f"📥 Đã thêm {qty}x {name} vào giỏ hàng!")
-st.markdown(bot_reply)
-st.session_state.messages.append({"role": "assistant", "content": bot_reply})
-if quick_question or ordered_items:
-st.rerun()
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
