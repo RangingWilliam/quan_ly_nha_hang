@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🍀 LDBot - Lamar Davis Restaurant & Cart</title>
   <!-- Nhúng thư viện Marked hỗ trợ định dạng chữ của Bot -->
-  <script src="https://jsdelivr.net"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
   
   <style>
     /* BỘ CSS THUẦN KHÔI PHỤC LAYOUT CHUẨN 3 CỘT */
@@ -151,138 +152,293 @@
     </section>
   </main>
 
-  <script>
-    const MENU_DATA = [
-      { name: "Yee-Yee Ass Burger", description: "Chiếc burger bò phô mai siêu to khổng lồ giúp xóa bỏ mái tóc quê mùa.", ingredients: "Bánh mì, thịt bò nướng, cheddar, xà lách" },
-      { name: "LD Organics Herbal Pizza", description: "Bánh Pizza đế mỏng phủ ngập ngụa thảo mộc thư giãn từ nông trại.", ingredients: "Đế pizza, sốt cà chua, mozzarella, thảo mộc organic" },
-      { name: "Chop's Heavyweight Hotdog", description: "Chiếc hotdog siêu dài kẹp xúc xích cỡ bự đặt theo tên chú chó lực lưỡng.", ingredients: "Bánh mì hotdog, xúc xích béc-giê, hành tây" },
-      { name: "Chamberlain Hills Fried Chicken", description: "Gà rán giòn rụm kiểu miền Nam dành cho các buổi tụ họp băng đảng.", ingredients: "Cánh đùi gà, bột chiên xù bí mật, sốt BBQ cay" }
-    ];
+ <script>
+const API_BASE_URL = "http://127.0.0.1:8000";
 
-    let cart = {};
+let MENU_DATA = [];
+let cart = {};
 
-window.onload = function() {
-  document.getElementById('apiKeyInput').value = localStorage.getItem('gemini_key') || "";
-  updateStatusBadge();
-  renderCart();
-  
-  // TỰ ĐỘNG GỌI SANG SERVER PYTHON ĐỂ LẤY ĐẦY ĐỦ 12 MÓN ĂN TỪ FILE MENU.CSV
-  fetch("http://127.0.0")
-    .then(res => res.json())
-    .then(data => {
-      // Cập nhật mảng MENU_DATA bằng dữ liệu thực tế từ file csv
-      const container = document.getElementById('menuContainer');
-      container.innerHTML = data.map(item => `
-        <div onclick="sendChat('Tư vấn cho tôi món: ${item.name}')" class="menu-item">
-          <h3 style="font-weight: bold; color: #14532d;">${item.name}</h3>
-          <p>${item.description}</p>
-          <p class="ing">🔥 Thành phần: ${item.ingredients}</p>
-          ${item.notes ? `<p class="ing" style="color: #b45309;">📌 Ghi chú: ${item.notes}</p>` : ''}
+// Tránh chèn trực tiếp ký tự HTML không an toàn vào giao diện.
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    }[char]));
+}
+
+// Tải thực đơn từ app.py thông qua GET /api/menu.
+async function loadMenu() {
+    const response = await fetch(`${API_BASE_URL}/api/menu`);
+
+    if (!response.ok) {
+        throw new Error(`Không tải được thực đơn (HTTP ${response.status}).`);
+    }
+
+    MENU_DATA = await response.json();
+    renderMenu();
+}
+
+// Hiển thị danh sách món ăn do backend trả về.
+function renderMenu() {
+    const container = document.getElementById("menuContainer");
+
+    if (!MENU_DATA.length) {
+        container.textContent = "Thực đơn hiện đang trống.";
+        return;
+    }
+
+    container.innerHTML = MENU_DATA.map((item, index) => `
+        <div class="menu-item" data-menu-index="${index}">
+            <h3>${escapeHtml(item.name)}</h3>
+            <p>${escapeHtml(item.description)}</p>
+            <p class="ing">
+                🔥 Thành phần: ${escapeHtml(item.ingredients)}
+            </p>
+            ${item.notes
+                ? `<p class="ing">📌 Ghi chú: ${escapeHtml(item.notes)}</p>`
+                : ""}
         </div>
-      `).join('');
-    })
-    .catch(err => {
-      // Nếu server chưa bật, hiển thị thông báo nhắc nhở trực quan
-      document.getElementById('menuContainer').innerHTML = `
-        <div style="text-align: center; color: #dc2626; font-size: 12px; padding: 20px; background: #fef2f2; border-radius: 12px; border: 1px solid #fee2e2;">
-          ⚠️ <b>Chưa bật máy chủ Python!</b><br>Vui lòng chạy lệnh <code>python app.py</code> trong VS Code rồi bấm F5 để tải danh sách 12 món ăn.
-        </div>`;
+    `).join("");
+
+    container.querySelectorAll("[data-menu-index]").forEach(element => {
+        element.addEventListener("click", () => {
+            const item = MENU_DATA[Number(element.dataset.menuIndex)];
+
+            if (item) {
+                sendChat(`Tư vấn cho tôi món: ${item.name}`);
+            }
+        });
+    });
+}
+
+// Hiển thị và cập nhật giỏ hàng.
+function renderCart() {
+    const container = document.getElementById("cartContainer");
+    const names = Object.keys(cart);
+
+    if (names.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center; color:#9ca3af; padding-top:40px;">
+                Giỏ hàng trống.<br>
+                Hãy chat đặt món với LDBot!
+            </div>
+        `;
+        document.getElementById("totalItems").innerText = "0 món";
+        return;
+    }
+
+    const total = names.reduce(
+        (sum, name) => sum + Number(cart[name] || 0),
+        0
+    );
+
+    container.innerHTML = names.map(name => `
+        <div class="cart-item">
+            <div style="flex:1;">
+                <p style="font-weight:bold;">${escapeHtml(name)}</p>
+                <p style="font-size:11px; margin-top:4px;">
+                    Số lượng: ${Number(cart[name])}
+                </p>
+            </div>
+            <button
+                type="button"
+                class="cart-del-btn"
+                data-remove-name="${escapeHtml(name)}"
+                aria-label="Xóa ${escapeHtml(name)}"
+            >❌</button>
+        </div>
+    `).join("");
+
+    container.querySelectorAll("[data-remove-name]").forEach(button => {
+        button.addEventListener("click", () => {
+            delete cart[button.dataset.removeName];
+            renderCart();
+        });
     });
 
-  appendMessage("assistant", "Dạ LDBot xin chào quý khách! 🍀✨ Máy chủ Backend đã sẵn sàng đồng bộ 12 món ăn từ file menu.csv. Quý khách có thể chat để đặt món ngay bây giờ!");
-};
-function renderMenu() {
-const container = document.getElementById('menuContainer');
-container.innerHTML = MENU_DATA.map(item => <div onclick="sendChat('Tư vấn cho tôi món: ${item.name}')" class="menu-item"> <h3 style="font-weight: bold;">${item.name}</h3> <p>${item.description}</p> <p class="ing">🔥 Thành phần: ${item.ingredients}</p> </div>).join('');
+    document.getElementById("totalItems").innerText = `${total} món`;
 }
-function renderCart() {
-const container = document.getElementById('cartContainer');
-const keys = Object.keys(cart);
-if (keys.length === 0) {
-container.innerHTML = <div style="text-align: center; font-size: 12px; color: #9ca3af; padding-top: 40px;">Giỏ hàng trống.<br>Hãy chat đặt món với LDBot!</div>;
-document.getElementById('totalItems').innerText = "0 món";
-return;
-}
-let total = 0;
-container.innerHTML = keys.map(name => {
-total += cart[name];
-return <div class="cart-item"> <div style="flex: 1;"> <p style="font-weight: bold; color: #1f2937;">${name}</p> <p style="color: #6b7280; font-size: 11px; margin-top: 2px;">Số lượng: <span style="font-weight: bold; color: #14532d;">${cart[name]}</span></p> </div> <button onclick="updateCartItem('${name}', 0)" class="cart-del-btn">❌</button> </div>;
-}).join('');
-document.getElementById('totalItems').innerText = ${total} món;
-}
+
 function updateCartItem(name, quantity) {
-if (quantity <= 0) delete cart[name];
-else cart[name] = quantity;
-renderCart();
+    if (quantity <= 0) {
+        delete cart[name];
+    } else {
+        cart[name] = quantity;
+    }
+
+    renderCart();
 }
+
 function checkout() {
-if (Object.keys(cart).length === 0) { alert("Giỏ hàng của bạn đang trống!"); return; }
-alert("🎉 Đơn hàng đã được chuyển tiếp vào nhà bếp xử lý thành công!");
-cart = {};
-renderCart();
+    if (Object.keys(cart).length === 0) {
+        alert("Giỏ hàng của bạn đang trống!");
+        return;
+    }
+
+    // Hiện tại chỉ xác nhận ở giao diện, chưa lưu đơn vào database.
+    alert("Giỏ hàng đã được xác nhận ở giao diện demo!");
+
+    cart = {};
+    renderCart();
 }
+
+// Hiển thị tin nhắn trong khung chat.
 function appendMessage(role, text) {
-const chatBox = document.getElementById('chatBox');
-const avatar = role === 'assistant' ? '👦🏿' : '👤';
-const msgClass = role === 'assistant' ? 'msg-bot' : 'msg-user';
-let htmlContent = text;
-try { htmlContent = marked.parse(text); } catch(e) {}
-const msgDiv = document.createElement('div');
-msgDiv.className = msg ${msgClass};
-msgDiv.innerHTML = <div style="font-size: 18px;">${avatar}</div> <div style="flex: 1;">${htmlContent}</div>;
-chatBox.appendChild(msgDiv);
-chatBox.scrollTop = chatBox.scrollHeight;
+    const chatBox = document.getElementById("chatBox");
+    const avatar = role === "assistant" ? "👦🏿" : "👤";
+    const msgClass = role === "assistant" ? "msg-bot" : "msg-user";
+
+    let content = escapeHtml(text).replace(/\n/g, "<br>");
+
+    if (role === "assistant" && window.marked && window.DOMPurify) {
+        content = DOMPurify.sanitize(marked.parse(String(text ?? "")));
+    }
+
+    const messageDiv = document.createElement("div");
+    messageDiv.className = `msg ${msgClass}`;
+
+    messageDiv.innerHTML = `
+        <div style="font-size:18px;">${avatar}</div>
+        <div style="flex:1;">${content}</div>
+    `;
+
+    chatBox.appendChild(messageDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
 }
-function handleChatSubmit(e) {
-e.preventDefault();
-const input = document.getElementById('userInput');
-if (!input.value.trim()) return;
-sendChat(input.value.trim());
-input.value = "";
+
+function handleChatSubmit(event) {
+    event.preventDefault();
+
+    const input = document.getElementById("userInput");
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    input.value = "";
+    sendChat(message);
 }
+
+// Gửi câu hỏi từ index.html tới POST /api/chat.
 async function sendChat(text) {
-appendMessage("user", text);
-const isMock = document.getElementById('mockToggle').checked;
-const apiKey = document.getElementById('apiKeyInput').value;
-const url = "127.0.0";
-const requestBody = {
-message: text,
-api_key: apiKey,
-use_mock: isMock,
-model_name: "gemini-2.5-flash"
-};
-try {
-const response = await fetch(url, {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify(requestBody)
-});
-if (!response.ok) throw new Error("Backend lỗi hệ thống.");
-const result = await response.json();
-appendMessage("assistant", result.reply);
-if (result.ordered_items && result.ordered_items.length > 0) {
-result.ordered_items.forEach(item => {
-const matched = MENU_DATA.find(m => m.name.toLowerCase() === item.item_name.toLowerCase());
-if (matched) {
-cart[matched.name] = (cart[matched.name] || 0) + item.quantity;
+    const message = String(text ?? "").trim();
+    if (!message) return;
+
+    appendMessage("user", message);
+
+    const useMock = document.getElementById("mockToggle").checked;
+    const apiKey = document.getElementById("apiKeyInput").value.trim();
+
+    if (!useMock && !apiKey) {
+        appendMessage(
+            "assistant",
+            "Vui lòng nhập Gemini API Key hoặc bật Mock Mode."
+        );
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/chat`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                message: message,
+                api_key: apiKey,
+                use_mock: useMock,
+                model_name: "gemini-2.5-flash"
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.detail || `Backend trả về lỗi HTTP ${response.status}.`
+            );
+        }
+
+        appendMessage(
+            "assistant",
+            result.reply || "Xin lỗi, LDBot chưa có phản hồi."
+        );
+
+        // Chỉ thêm món nếu AI trả về tên khớp với thực đơn.
+        if (Array.isArray(result.ordered_items)) {
+            result.ordered_items.forEach(item => {
+                const matched = MENU_DATA.find(
+                    menuItem =>
+                        menuItem.name.trim().toLowerCase() ===
+                        String(item.item_name ?? "").trim().toLowerCase()
+                );
+
+                const quantity = Number(item.quantity);
+
+                if (matched && Number.isInteger(quantity) && quantity > 0) {
+                    cart[matched.name] =
+                        (cart[matched.name] || 0) + quantity;
+                }
+            });
+
+            renderCart();
+        }
+    } catch (error) {
+        appendMessage(
+            "assistant",
+            `⚠️ Không thể xử lý yêu cầu: ${error.message}. ` +
+            "Hãy kiểm tra backend và kết nối mạng."
+        );
+
+        console.error("LDBot API error:", error);
+    }
 }
-});
-renderCart();
+
+function saveKey() {
+    const key = document.getElementById("apiKeyInput").value;
+    localStorage.setItem("gemini_key", key);
 }
-} catch (error) {
-appendMessage("assistant", ⚠️ **Lỗi**: Vui lòng chạy lệnh \python app.py` để bật Server Backend lên trước khi chat.`);
+
+function clearChat() {
+    document.getElementById("chatBox").innerHTML = "";
 }
-}
-function saveKey() { localStorage.setItem('gemini_key', document.getElementById('apiKeyInput').value); }
-function clearChat() { document.getElementById('chatBox').innerHTML = ""; }
+
 function updateStatusBadge() {
-const isMock = document.getElementById('mockToggle').checked;
-const badge = document.getElementById('statusBadge');
-if (isMock) {
-badge.innerText = "Chế độ Giả lập";
-badge.className = "status-badge bg-amber";
-} else {
-badge.innerText = "Gemini API Chạy Thật";
-badge.className = "status-badge bg-green";
+    const isMock = document.getElementById("mockToggle").checked;
+    const badge = document.getElementById("statusBadge");
+
+    if (isMock) {
+        badge.innerText = "Chế độ Giả lập";
+        badge.className = "status-badge bg-amber";
+    } else {
+        badge.innerText = "Gemini API Chạy Thật";
+        badge.className = "status-badge bg-green";
+    }
 }
-}
+
+// Khởi động giao diện.
+window.addEventListener("DOMContentLoaded", async () => {
+    document.getElementById("apiKeyInput").value =
+        localStorage.getItem("gemini_key") || "";
+
+    updateStatusBadge();
+    renderCart();
+
+    appendMessage(
+        "assistant",
+        "LDBot xin chào quý khách! 🍀 Hãy hỏi về thực đơn hoặc đặt món."
+    );
+
+    try {
+        await loadMenu();
+    } catch (error) {
+        document.getElementById("menuContainer").innerHTML =
+            `<p style="color:#dc2626;padding:16px;">` +
+            `${escapeHtml(error.message)} Hãy kiểm tra backend Python.</p>`;
+
+        console.error("LDBot menu error:", error);
+    }
+});
+</script>
