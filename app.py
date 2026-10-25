@@ -15,10 +15,13 @@ app = FastAPI(title="Lamar Davis Restaurant API")
 # Cấu hình CORS để tệp index.html chạy trên trình duyệt có quyền gọi tới API Backend này
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
 # Cấu trúc dữ liệu JSON để ép buộc Gemini trích xuất món ăn chính xác sang giỏ hàng
@@ -112,7 +115,9 @@ async def get_menu():
 # API Tiếp nhận tin nhắn trò chuyện và xử lý đơn đặt hàng bằng AI
 @app.post("/api/chat")
 async def chat_endpoint(payload: ChatRequest):
-    if payload.use_mock or not payload.api_key:
+    if payload.use_mock:
+    # Giữ nguyên phần code Mock Mode hiện có
+    # Bao gồm mock_items và return ở cuối nhánh này
         mock_items = []
         msg_lower = payload.message.lower()
         if "burger" in msg_lower:
@@ -127,9 +132,14 @@ async def chat_endpoint(payload: ChatRequest):
             "reply": "👩🏿‍🦲 **[Mock Mode - Server]**: Chào bạn! Hệ thống nhận diện từ khóa thành công tại Backend. Khi có API Key thật, Gemini sẽ tự động bóc tách đơn hàng chính xác vào giỏ hàng!",
             "ordered_items": mock_items
         }
-
+if not payload.api_key.strip():
+    raise HTTPException(
+        status_code=400,
+        detail="Bạn chưa nhập Gemini API Key. "
+               "Hãy nhập API key hoặc bật Mock Mode."
+    )
     try:
-        client = genai.Client(api_key=payload.api_key)
+       client = genai.Client(api_key=payload.api_key.strip())
         response = client.models.generate_content(
             model=payload.model_name,
             contents=payload.message,
