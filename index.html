@@ -3,77 +3,82 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>👦🏿 LDBot - Lamar Davis Restaurant & Cart</title>
+  <title>🍀 LDBot - Lamar Davis Restaurant & Cart</title>
   <!-- Nhúng thư viện Marked hỗ trợ định dạng chữ của Bot -->
   <script src="https://jsdelivr.net"></script>
   
   <style>
     /* BỘ CSS THUẦN KHÔI PHỤC LAYOUT CHUẨN 3 CỘT */
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background-color: #fdfaf6; min-height: 100vh; display: flex; flex-direction: column; color: #333; }
+    body { background-color: #f6fdf6; min-height: 100vh; display: flex; flex-direction: column; color: #333; }
     
-    header { background: linear-gradient(135deg, #991b1b, #b45309); color: white; padding: 20px; shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    /* ĐÃ SỬA: Đổi màu Header sang màu xanh lá cây đậm chất gangster rực rỡ phong cách Lamar Davis */
+    header { background: linear-gradient(135deg, #14532d, #16a34a); color: white; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .header-container { max-w: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
     .brand { display: flex; align-items: center; gap: 15px; }
     .brand h1 { font-size: 24px; font-weight: bold; letter-spacing: 0.5px; }
-    .brand p { color: #fef3c7; font-size: 13px; margin-top: 4px; }
+    .brand p { color: #dcfce7; font-size: 13px; margin-top: 4px; }
     
-    .config-box { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 8px 12px; rounded-radius: 8px; border-radius: 8px; font-size: 13px; }
+    .config-box { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 8px; font-size: 13px; }
     .config-box input { padding: 6px 10px; border-radius: 4px; border: none; font-size: 12px; width: 180px; }
     .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
     .bg-amber { background-color: #fbbf24; color: #1f2937; }
-    .bg-green { background-color: #10b981; color: white; }
+    .bg-green { background-color: #22c55e; color: white; }
 
     main { max-w: 1200px; w: 100%; margin: 20px auto; padding: 0 15px; display: grid; grid-template-cols: 1fr; gap: 20px; flex: 1; }
     @media (min-width: 1024px) { main { grid-template-columns: 4fr 5fr 3fr; } }
     
-    section { background: white; border-radius: 16px; border: 1px solid #fef3c7; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; height: 620px; }
-    .panel-header { padding: 12px 16px; border-b: 1px solid #fef3c7; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
-    .bg-panel-left { background-color: #fef3c7; color: #451a03; }
-    .bg-panel-mid { background-color: #fef2f2; color: #1f2937; }
-    .bg-panel-right { background-color: #d97706; color: white; }
+    section { background: white; border-radius: 16px; border: 1px solid #dcfce7; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; height: 620px; }
+    .panel-header { padding: 12px 16px; border-bottom: 1px solid #dcfce7; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+    .bg-panel-left { background-color: #dcfce7; color: #14532d; }
+    .bg-panel-mid { background-color: #f0fdf4; color: #1f2937; }
+    /* ĐÃ SỬA: Đổi màu tiêu đề giỏ hàng đồng bộ với tông xanh lá cây */
+    .bg-panel-right { background-color: #16a34a; color: white; }
     
     .scroll-area { padding: 15px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
     .scroll-area::-webkit-scrollbar { width: 5px; }
     .scroll-area::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     
     /* Style thẻ món ăn */
-    .menu-item { p: 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 12px; cursor: pointer; transition: all 0.2s; text-align: left; }
-    .menu-item:hover { background: #fef3c7; border-color: #b91c1c; }
+    .menu-item { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px; cursor: pointer; transition: all 0.2s; text-align: left; }
+    .menu-item:hover { background: #dcfce7; border-color: #16a34a; }
     .menu-item h3 { font-size: 14px; color: #1f2937; }
     .menu-item p { font-size: 12px; color: #4b5563; margin-top: 4px; }
-    .menu-item .ing { font-size: 11px; color: #9ca3af; italic: true; font-style: italic; }
+    .menu-item .ing { font-size: 11px; color: #9ca3af; font-style: italic; }
 
     /* Khung chat phụ trợ */
     .quick-bar { padding: 8px 15px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
     .quick-btn { background: white; border: 1px solid #e5e7eb; padding: 4px 10px; border-radius: 20px; cursor: pointer; transition: 0.2s; }
-    .quick-btn:hover { background: #fffbeb; border-color: #d97706; }
+    .quick-btn:hover { background: #e6fbe6; border-color: #16a34a; }
     
     .msg { display: flex; gap: 10px; padding: 10px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
     .msg-user { background-color: #eff6ff; }
-    .msg-bot { background-color: #fffdf5; border: 1px solid #fffbeb; }
+    .msg-bot { background-color: #f6fdf6; border: 1px solid #dcfce7; }
     
     .chat-form { padding: 12px; border-top: 1px solid #e5e7eb; display: flex; gap: 10px; background: white; }
     .chat-form input { flex: 1; padding: 10px 15px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 13px; }
-    .chat-form input:focus { outline: none; border-color: #b91c1c; }
-    .chat-form button { background: #b91c1c; color: white; border: none; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 13px; }
-    .chat-form button:hover { background: #991b1b; }
+    /* ĐÃ SỬA: Đổi màu viền khi ô tìm kiếm được tập trung sang xanh lá */
+    .chat-form input:focus { outline: none; border-color: #16a34a; }
+    /* ĐÃ SỬA: Đổi màu nút gửi thành màu xanh bộ tộc */
+    .chat-form button { background: #16a34a; color: white; border: none; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 13px; }
+    .chat-form button:hover { background: #14532d; }
 
     /* Giỏ hàng bên phải */
     .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 12px; }
     .cart-del-btn { color: #ef4444; border: none; background: transparent; cursor: pointer; font-size: 14px; padding: 4px; }
     .cart-footer { padding: 15px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 12px; }
-    .btn-checkout { width: 100%; background: #059669; color: white; font-weight: bold; padding: 10px; border: none; border-radius: 10px; cursor: pointer; font-size: 13px; transition: 0.2s; }
-    .btn-checkout:hover { background: #047857; }
+    /* ĐÃ SỬA: Đổi màu nút xác nhận gửi đơn sang màu đậm chất ngầu hơn */
+    .btn-checkout { width: 100%; background: #15803d; color: white; font-weight: bold; padding: 10px; border: none; border-radius: 10px; cursor: pointer; font-size: 13px; transition: 0.2s; }
+    .btn-checkout:hover { background: #166534; }
   </style>
 </head>
 <body>
 
-  <!-- HEADER -->
+  <!-- HEADER (Đã đổi icon sang Cỏ 4 Lá 🍀 mang màu xanh may mắn và thương hiệu của Lamar) -->
   <header>
     <div class="header-container">
       <div class="brand">
-        <span style="font-size: 32px;">🍜</span>
+        <span style="font-size: 32px;">🍀</span>
         <div>
           <h1>Lamar Davis Restaurant</h1>
           <p>📍 67 Chamberlain Hills, Los Santos, USA | ☎️ Hotline: 318-237-3870</p>
@@ -103,12 +108,13 @@
 
     <!-- CỘT 2: KHUNG CHAT -->
     <section>
-      <div class="panel-header bg-panel-mid" style="border-bottom: 1px solid #fee2e2;">
+      <div class="panel-header bg-panel-mid">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 20px;">🤖</span>
+          <!-- ĐÃ SỬA: Thay icon bot từ robot vô hồn sang biểu tượng đại diện Gangster ngầu chất 👦🏿 -->
+          <span style="font-size: 20px;">👦🏿</span>
           <div>
             <div style="font-size: 14px; font-weight: bold;">Trợ Lý AI LDBot</div>
-            <div style="font-size: 11px; color: #10b981; font-weight: normal;">● Trực tuyến - Đang kết nối Backend</div>
+            <div style="font-size: 11px; color: #16a34a; font-weight: normal;">● Trực tuyến - Đang kết nối Backend</div>
           </div>
         </div>
         <button onclick="clearChat()" style="font-size: 11px; padding: 3px 8px; border: 1px solid #d1d5db; background: white; border-radius: 4px; cursor: pointer;">🗑️ Xóa chat</button>
@@ -138,7 +144,7 @@
       <div class="cart-footer">
         <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold;">
           <span>Tổng số lượng:</span>
-          <span id="totalItems" style="color: #b45309;">0 món</span>
+          <span id="totalItems" style="color: #14532d;">0 món</span>
         </div>
         <button class="btn-checkout" onclick="checkout()">🔔 Gửi Đơn Vào Nhà Bếp</button>
       </div>
@@ -160,18 +166,11 @@
       updateStatusBadge();
       renderMenu();
       renderCart();
-      appendMessage("assistant", "Dạ LDBot xin chào quý khách! 🍀✨ Giao diện đã được khôi phục. Quý khách vui lòng chạy lệnh `python app.py` dưới máy để kích hoạt hệ thống đặt món nhé!");
-    };
-
-    function renderMenu() {
-      const container = document.getElementById('menuContainer');
-      container.innerHTML = MENU_DATA.map(item => `
-        <div onclick="sendChat('Tư vấn cho tôi món: ${item.name}')" class="menu-item">
-          <h3 style="font-weight: bold;">${item.name}</h3>
-          <p>${item.description}</p>
-🔥 Thành phần: ${item.ingredients}
-
-`).join('');
+      appendMessage("assistant", "Dạ LDBot xin chào quý khách! 🍀✨ Giao diện mang phong cách xanh lá cây rực lửa của khu phố Chamberlain Hills đã kích hoạt. Quý khách hãy bật python app.py lên và bắt đầu đặt món nhé!");
+};
+function renderMenu() {
+const container = document.getElementById('menuContainer');
+container.innerHTML = MENU_DATA.map(item => <div onclick="sendChat('Tư vấn cho tôi món: ${item.name}')" class="menu-item"> <h3 style="font-weight: bold;">${item.name}</h3> <p>${item.description}</p> <p class="ing">🔥 Thành phần: ${item.ingredients}</p> </div>).join('');
 }
 function renderCart() {
 const container = document.getElementById('cartContainer');
@@ -184,7 +183,7 @@ return;
 let total = 0;
 container.innerHTML = keys.map(name => {
 total += cart[name];
-return <div class="cart-item"> <div style="flex: 1;"> <p style="font-weight: bold; color: #1f2937;">${name}</p> <p style="color: #6b7280; font-size: 11px; margin-top: 2px;">Số lượng: <span style="font-weight: bold; color: #b45309;">${cart[name]}</span></p> </div> <button onclick="updateCartItem('${name}', 0)" class="cart-del-btn">❌</button> </div>;
+return <div class="cart-item"> <div style="flex: 1;"> <p style="font-weight: bold; color: #1f2937;">${name}</p> <p style="color: #6b7280; font-size: 11px; margin-top: 2px;">Số lượng: <span style="font-weight: bold; color: #14532d;">${cart[name]}</span></p> </div> <button onclick="updateCartItem('${name}', 0)" class="cart-del-btn">❌</button> </div>;
 }).join('');
 document.getElementById('totalItems').innerText = ${total} món;
 }
@@ -201,13 +200,12 @@ renderCart();
 }
 function appendMessage(role, text) {
 const chatBox = document.getElementById('chatBox');
-const avatar = role === 'assistant' ? '👩🏿‍🦲' : '👤';
+const avatar = role === 'assistant' ? '👦🏿' : '👤';
 const msgClass = role === 'assistant' ? 'msg-bot' : 'msg-user';
-const msgDiv = document.createElement('div');
-msgDiv.className = msg ${msgClass};
-// Chống lỗi nếu thư viện marked chưa kịp tải về máy địa phương
 let htmlContent = text;
 try { htmlContent = marked.parse(text); } catch(e) {}
+const msgDiv = document.createElement('div');
+msgDiv.className = msg ${msgClass};
 msgDiv.innerHTML = <div style="font-size: 18px;">${avatar}</div> <div style="flex: 1;">${htmlContent}</div>;
 chatBox.appendChild(msgDiv);
 chatBox.scrollTop = chatBox.scrollHeight;
@@ -265,7 +263,3 @@ badge.innerText = "Gemini API Chạy Thật";
 badge.className = "status-badge bg-green";
 }
 }
-
-
-
-
