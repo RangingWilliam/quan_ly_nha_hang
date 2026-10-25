@@ -161,12 +161,35 @@
 
     let cart = {};
 
-    window.onload = function() {
-      document.getElementById('apiKeyInput').value = localStorage.getItem('gemini_key') || "";
-      updateStatusBadge();
-      renderMenu();
-      renderCart();
-      appendMessage("assistant", "Dạ LDBot xin chào quý khách! 🍀✨ Giao diện mang phong cách xanh lá cây rực lửa của khu phố Chamberlain Hills đã kích hoạt. Quý khách hãy bật python app.py lên và bắt đầu đặt món nhé!");
+window.onload = function() {
+  document.getElementById('apiKeyInput').value = localStorage.getItem('gemini_key') || "";
+  updateStatusBadge();
+  renderCart();
+  
+  // TỰ ĐỘNG GỌI SANG SERVER PYTHON ĐỂ LẤY ĐẦY ĐỦ 12 MÓN ĂN TỪ FILE MENU.CSV
+  fetch("http://127.0.0")
+    .then(res => res.json())
+    .then(data => {
+      // Cập nhật mảng MENU_DATA bằng dữ liệu thực tế từ file csv
+      const container = document.getElementById('menuContainer');
+      container.innerHTML = data.map(item => `
+        <div onclick="sendChat('Tư vấn cho tôi món: ${item.name}')" class="menu-item">
+          <h3 style="font-weight: bold; color: #14532d;">${item.name}</h3>
+          <p>${item.description}</p>
+          <p class="ing">🔥 Thành phần: ${item.ingredients}</p>
+          ${item.notes ? `<p class="ing" style="color: #b45309;">📌 Ghi chú: ${item.notes}</p>` : ''}
+        </div>
+      `).join('');
+    })
+    .catch(err => {
+      // Nếu server chưa bật, hiển thị thông báo nhắc nhở trực quan
+      document.getElementById('menuContainer').innerHTML = `
+        <div style="text-align: center; color: #dc2626; font-size: 12px; padding: 20px; background: #fef2f2; border-radius: 12px; border: 1px solid #fee2e2;">
+          ⚠️ <b>Chưa bật máy chủ Python!</b><br>Vui lòng chạy lệnh <code>python app.py</code> trong VS Code rồi bấm F5 để tải danh sách 12 món ăn.
+        </div>`;
+    });
+
+  appendMessage("assistant", "Dạ LDBot xin chào quý khách! 🍀✨ Máy chủ Backend đã sẵn sàng đồng bộ 12 món ăn từ file menu.csv. Quý khách có thể chat để đặt món ngay bây giờ!");
 };
 function renderMenu() {
 const container = document.getElementById('menuContainer');
