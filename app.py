@@ -115,7 +115,7 @@ async def get_menu():
 # API Tiếp nhận tin nhắn trò chuyện và xử lý đơn đặt hàng bằng AI
 @app.post("/api/chat")
 async def chat_endpoint(payload: ChatRequest):
-    if payload.use_mock:
+if payload.use_mock:
     # Giữ nguyên phần code Mock Mode hiện có
     # Bao gồm mock_items và return ở cuối nhánh này
         mock_items = []
